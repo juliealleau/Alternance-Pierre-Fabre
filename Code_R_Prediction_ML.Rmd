@@ -1,0 +1,779 @@
+---
+title: "Modele linéaire mutiple pour expliquer la variable gout d'un prototype formul en fonction des descripteurs sensoriels"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Chargement des données
+```{r}
+path_data <- "J:/analsens_R01/Stagiaire/Julie 2021-2022/Aromatheque/memoire/"
+load(paste(path_data,"moyenne_ajuste_BDB_all.RData",sep=""))
+path_data <- "J:/analsens_R01/Stagiaire/Julie 2021-2022/Aromatheque/memoire/"
+load(paste(path_data,"moyenne_ajuste_bdb_AGgout.RData",sep=""))
+sensoconso=cbind(moyenne_ajuste_bdb_all,moyenne_ajuste_bdb_AGgout)
+sensoconsoGOUT=sensoconso[,-39]
+```
+
+# Correction d'écriture
+```{r}
+names(sensoconso)[names(sensoconso)=="HALEINE SAINE5"] <- "HALEINE_SAINE5"
+names(sensoconso)[names(sensoconso)=="HALEINE SAINE4"] <- "HALEINE_SAINE4"
+names(sensoconso)[names(sensoconso)=="BOUCHE PATEUSE5"] <- "BOUCHE_PATEUSE5"
+```
+
+## Création des tableaux par sélection de variables à la main
+# On enleve les descripteurs qui ne respectent pas la normalité des résidus pour les moyennes ajustées soit :
+2:"PEPPERMINT1",3:"EUCALYPTUS1",4:"CHLOROPHYLLE1",6:"AROME3",7:"PEPPERMINT3",8:"EUCALYPTUS3",9:"CHLOROPHYLLE3",28:"RESIDUS5",29:"ANESTHESIE5",32:"PIQUANT5",34:"ACIDE5",35:"AMER5",36:"ASTRINGENT5"
+```{r}
+sensoconsoGOUT2=sensoconso[,-c(2,3,4,6,7,8,9,28,29,32,34,35,36,39)]
+```
+
+# Etude des corrélations entre les variables explicatives deux à deux (corrélation de spearman car pas forcement de relation affine entre les 2). 
+
+On regarde les descrpteurs très fortement corrélées (>0.85 par exemple). 
+En effet lorsque des fortes corrélations sont mises en évidence, une des deux variables (celle qui a le moins de sens “métier”, ou celle qui est le moins liée à la réponse), ne devra pas être incluse dans le modèle de régression linéaire multiple.
+
+```{r}
+#X=cor(sensoconsoGOUT, method="spearman")
+X=cor(sensoconsoGOUT2, method="spearman")
+X[X<.85&X>-0.85]=NA
+X
+library(GGally)
+ggcorr(sensoconsoGOUT[,c("PIQUANT3","PIQUANT4","ANESTHESIE3","ANESTHESIE4","FRAIS3","FRAIS4","FRAIS5","SUCRE4","SUCRE5","HALEINE_SAINE4")],method = c("all.obs", "spearman"), low = "steelblue", mid = "white", high = "darkred",label = TRUE)
+
+```
+On garde alors Frais3, Piquant3 et Sucre4 et on supprime les autres covariables très fortement corrélées.
+
+# Tableau sans les descripteurs trop fortement corrélés
+```{r}
+data1=sensoconsoGOUT[,-c(22,17,19,21,31,33,27)]
+#data2=sensoconsoGOUT2[,-c(22,17,19,21,31,33,27)]
+#data2=sensoconsoGOUT2[,-c(14,24,10,12,15,23,20)]
+```
+# Tableau sans descripteurs qui ne respect pas normalité des résidus et les descripteurs avec une trop forte corrélation
+```{r}
+sensoconsoGOUT3=sensoconsoGOUT2[,-c(10,12,15,20,14,22,23)]
+```
+
+
+# Ajustement des modèles
+
+```{r}
+modcomplet <- lm(Goût~., data=sensoconsoGOUT) 
+summary(modcomplet)
+mod <- lm(Goût~., data=data1) 
+summary(mod)
+modnorm <- lm(Goût~., data=sensoconsoGOUT2) 
+summary(modnorm)
+modnormcorr <- lm(Goût~., data=sensoconsoGOUT3) 
+summary(modnormcorr)
+```
+
+# Sélection de variables par AIC et BIC
+
+```{r}
+library(MASS)
+AICfor=stepAIC(mod, k=2,direction="forward",trace=0)
+AICback=stepAIC(mod, k=2,direction="backward",trace=0)
+AICboth=stepAIC(mod, k=2,direction="both",trace=0)
+BICfor=stepAIC(mod,k=log(53),direction="forward",trace=0)
+BICback=stepAIC(mod,k=log(53),direction="backward",trace=0)
+BICboth=stepAIC(mod,k=log(53),direction="both",trace=0)
+#summary(AICfor) #nul
+summary(AICback) #idem que both
+#summary(AICboth)
+#summary(BICfor) #nul
+summary(BICback) #idem que both
+#summary(BICboth)
+```
+
+```{r}
+AICforcomplet=stepAIC(modcomplet, k=2,direction="forward",trace=0)
+AICbackcomplet=stepAIC(modcomplet, k=2,direction="backward",trace=0)
+AICbothcomplet=stepAIC(modcomplet, k=2,direction="both",trace=0)
+BICforcomplet=stepAIC(modcomplet,k=log(53),direction="forward",trace=0)
+BICbackcomplet=stepAIC(modcomplet,k=log(53),direction="backward",trace=0)
+BICbothcomplet=stepAIC(modcomplet,k=log(53),direction="both",trace=0)
+summary(AICbackcomplet) #idem que both
+summary(BICbackcomplet) #pas idem que both
+```
+
+```{r}
+AICfornorm=stepAIC(modnorm, k=2,direction="forward",trace=0)
+AICbacknorm=stepAIC(modnorm, k=2,direction="backward",trace=0)
+AICbothnorm=stepAIC(modnorm, k=2,direction="both",trace=0)
+BICfornorm=stepAIC(modnorm,k=log(53),direction="forward",trace=0)
+BICbacknorm=stepAIC(modnorm,k=log(53),direction="backward",trace=0)
+BICbothnorm=stepAIC(modnorm,k=log(53),direction="both",trace=0)
+summary(AICbacknorm) 
+summary(BICbacknorm) 
+```
+
+```{r}
+AICfornormcorr=stepAIC(modnormcorr, k=2,direction="forward",trace=0)
+AICbacknormcorr=stepAIC(modnormcorr, k=2,direction="backward",trace=0)
+AICbothnormcorr=stepAIC(modnormcorr, k=2,direction="both",trace=0)
+BICfornormcorr=stepAIC(modnormcorr,k=log(53),direction="forward",trace=0)
+BICbacknormcorr=stepAIC(modnormcorr,k=log(53),direction="backward",trace=0)
+BICbothnormcorr=stepAIC(modnormcorr,k=log(53),direction="both",trace=0)
+summary(AICbacknormcorr) #idem que both
+summary(BICbacknormcorr) #pas idem que both
+```
+
+# Evaluation des multicollinéarités par les VIF
+
+```{r}
+library(performance)
+check_collinearity(BICback)
+check_collinearity(AICback)
+check_collinearity(BICbackcomplet)
+check_collinearity(AICbackcomplet)
+check_collinearity(BICbacknorm)
+check_collinearity(BICbacknormcorr)
+check_collinearity(AICbacknorm)
+check_collinearity(AICbacknormcorr)
+```
+
+```{r}
+modBICcomplet <- update(BICbackcomplet, .~.-ANESTHESIE5)
+check_collinearity(modBICcomplet)
+
+```
+
+```{r}
+modAICcomplet <- update(AICbackcomplet, .~.-FRAIS4)
+check_collinearity(modAICcomplet)
+
+modAICcomplet2 <- update(modAICcomplet, .~.-ANESTHESIE4)
+check_collinearity(modAICcomplet2)
+
+modAICcomplet3 <- update(modAICcomplet2, .~.-HALEINE_SAINE4)
+check_collinearity(modAICcomplet3)
+
+modAICcomplet4 <- update(modAICcomplet3, .~.-PIQUANT3)
+check_collinearity(modAICcomplet4)
+
+modAICcomplet5 <- update(modAICcomplet4, .~.-ANESTHESIE5)
+check_collinearity(modAICcomplet5)
+
+modAICcomplet6 <- update(modAICcomplet5, .~.-ASTRINGENT4)
+check_collinearity(modAICcomplet6)
+
+```
+
+```{r}
+modAICnorm <- update(AICbacknorm, .~.-ANESTHESIE3)
+check_collinearity(modAICnorm)
+
+modAICnorm1 <- update(modAICnorm, .~.-HALEINE_SAINE5)
+check_collinearity(modAICnorm1)
+```
+
+```{r}
+modAIC <- update(AICback, .~.-ANESTHESIE5)
+check_collinearity(modAIC)
+```
+
+# selection de modele : 
+
+```{r echo=FALSE, warning=FALSE}
+library(tidyverse)
+library(modelr)
+library(broom)
+
+modComplet=cbind(glance(modcomplet) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(modcomplet)$VIF))
+selmod=cbind(glance(mod) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(mod)$VIF))
+modNorm=cbind(glance(modnorm) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(modnorm)$VIF))
+modNormCorr=cbind(glance(modnormcorr) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(modnormcorr)$VIF))
+
+BIComplet=cbind(glance(BICbackcomplet) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(BICbackcomplet)$VIF))
+selBIC=cbind(glance(BICback) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(BICback)$VIF))
+BIComplet0=cbind(glance(modBICcomplet) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(modBICcomplet)$VIF))
+BICnorm=cbind(glance(BICbacknorm) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(BICbacknorm)$VIF))
+BICnormcorr=cbind(glance(BICbacknormcorr) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(BICbacknormcorr)$VIF))
+
+AIComplet=cbind(glance(AICbackcomplet) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(AICbackcomplet)$VIF))
+selAIC=cbind(glance(AICback) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(AICback)$VIF))
+AIComplet1=cbind(glance(modAICcomplet) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(modAICcomplet)$VIF))
+AIComplet2=cbind(glance(modAICcomplet2) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(modAICcomplet2)$VIF))
+AIComplet3=cbind(glance(modAICcomplet3) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(modAICcomplet3)$VIF))
+AIComplet4=cbind(glance(modAICcomplet4) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(modAICcomplet4)$VIF))
+AIComplet5=cbind(glance(modAICcomplet5) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(modAICcomplet5)$VIF))
+AIComplet6=cbind(glance(modAICcomplet6) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(modAICcomplet6)$VIF))
+selAIC0=cbind(glance(modAIC) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(modAIC)$VIF))
+AICnorm=cbind(glance(AICbacknorm) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(AICbacknorm)$VIF))
+AICnormcorr=cbind(glance(AICbacknormcorr) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(AICbacknormcorr)$VIF))
+AICnorm0=cbind(glance(modAICnorm) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(modAICnorm)$VIF))
+AICnorm1=cbind(glance(modAICnorm1) %>%
+  dplyr::select(adj.r.squared, sigma, AIC, BIC, p.value),maxVIF=max(check_collinearity(modAICnorm1)$VIF))
+```
+
+# Tableau des performances
+```{r}
+library(kableExtra)
+data_perf= data.frame(rbind(
+  modComplet,
+  BIComplet,
+  BIComplet0,
+  AIComplet,
+  AIComplet1,
+  AIComplet2,
+  AIComplet3,
+  AIComplet4,
+  AIComplet5,
+  AIComplet6,
+  selmod,
+  selBIC,
+  selAIC,
+  selAIC0,
+  modNorm,
+  BICnorm,
+  AICnorm,
+  AICnorm0,
+  AICnorm1,
+  modNormCorr,
+  BICnormcorr,
+  AICnormcorr))
+rownames(data_perf)=c(
+  "Modèle 1", 
+  "modBICcomplet",
+  "modBICcomplet2",
+  "modAICcomplet",
+  "modAICcomplet2",
+  "modAICcomplet3",
+  "modAICcomplet4",
+  "modAICcomplet5",
+  "modAICcomplet6",
+  "modAICcomplet7",
+  "Modèle 2", 
+  "modBICcorr",
+  "modAICcorr",
+  "modAICcorr2",
+  "Modèle 3",
+  "modBICnorm",
+  "modAICnorm",
+  "modAICnorm2",
+  "modAICnorm3",
+  "Modèle 4",
+  "modBICnormcorr",
+  "modAICnormcorr")
+  kbl(data_perf, booktabs = T) %>%
+  kable_styling(latex_options = c("striped", "hold_position"),
+                full_width = F)
+```
+
+# Evaluation des hypothèses du modèle linéaire multiples
+
+```{r}
+library("lmtest") 
+
+shapiro.test(residuals(BICbackcomplet))
+shapiro.test(residuals(modBICcomplet))
+shapiro.test(residuals(BICback))
+shapiro.test(residuals(modAIC))
+shapiro.test(residuals(BICbacknorm))
+shapiro.test(residuals(modAICnorm1))
+shapiro.test(residuals(BICbacknormcorr))
+shapiro.test(residuals(AICbacknormcorr))
+
+
+bptest(BICbackcomplet)
+bptest(modBICcomplet)
+bptest(BICback)
+bptest(modAIC)
+bptest(BICbacknorm)
+bptest(modAICnorm1)
+bptest(BICbacknormcorr)
+bptest(AICbacknormcorr)
+```
+
+```{r}
+fenetre=par(mfrow=c(2,2))
+plot(BICbackcomplet)
+fenetre=par(mfrow=c(2,2))
+plot(modBICcomplet)
+fenetre=par(mfrow=c(2,2))
+plot(BICback)
+fenetre=par(mfrow=c(2,2))
+plot(modAIC)
+fenetre=par(mfrow=c(2,2))
+plot(BICbacknorm)
+fenetre=par(mfrow=c(2,2))
+plot(modAICnorm1)
+fenetre=par(mfrow=c(2,2))
+plot(BICbacknormcorr)
+fenetre=par(mfrow=c(2,2))
+plot(AICbacknormcorr)
+```
+
+# Pédiction par validation croisée k-fold 
+
+```{r}
+library(caret)
+set.seed(123)
+RMSE_modelBICcomplet=NULL
+RMSESD_modelBICcomplet=NULL
+MAE_modelBICcomplet=NULL
+MAESD_modelBICcomplet=NULL
+rapport_RMSE_BICcomplet=NULL
+for(i in 1:1000) {
+  ind=sample(2,nrow(sensoconsoGOUT), replace=TRUE, prob = c(0.8,0.2))
+  train= sensoconsoGOUT[ind==1,]
+  test=sensoconsoGOUT[ind==2,]
+  train.control=trainControl(method="CV",number=10)
+
+  modelBICcomplet=train(Goût ~ AROME3 + PEPPERMINT3 + CHLOROPHYLLE3 + PIQUANT3 + 
+    AROME4 + AMER4 + ASTRINGENT4 + HALEINE_SAINE4 + ANESTHESIE5 + 
+    AROME5 + PIQUANT5 + AMER5 + ASTRINGENT5 + HALEINE_SAINE5 + 
+    BOUCHE_PATEUSE5, data = train,method="lm",trControl=train.control)
+
+
+  RMSE_modelBICcomplet[i]=modelBICcomplet$results$RMSE
+  RMSESD_modelBICcomplet[i]=modelBICcomplet$results$RMSESD
+  MAE_modelBICcomplet[i]=modelBICcomplet$results$MAE
+  MAESD_modelBICcomplet[i]=modelBICcomplet$results$MAESD
+  rapport_RMSE_BICcomplet[i]=RMSE_modelBICcomplet[i]/mean(test$Goût)
+}
+
+moy_RMSE_modelBICcomplet=mean(RMSE_modelBICcomplet)
+moy_RMSESD_modelBICcomplet=mean(RMSESD_modelBICcomplet)
+moy_MAE_modelBICcomplet=mean(MAE_modelBICcomplet)
+moy_MAESD_modelBICcomplet=mean(MAESD_modelBICcomplet)
+moy_rapport_RMSE_BICcomplet=mean(rapport_RMSE_BICcomplet)
+boxplot(RMSE_modelBICcomplet)
+summary(RMSE_modelBICcomplet)
+boxplot(MAE_modelBICcomplet)
+summary(MAE_modelBICcomplet)
+boxplot(rapport_RMSE_BICcomplet)
+summary(rapport_RMSE_BICcomplet)
+
+```
+
+```{r}
+library(caret)
+set.seed(123)
+RMSE_modelBICcomplet0=NULL
+RMSESD_modelBICcomplet0=NULL
+MAE_modelBICcomplet0=NULL
+MAESD_modelBICcomplet0=NULL
+rapport_RMSE_BICcomplet0=NULL
+for(i in 1:1000){
+  ind=sample(2,nrow(sensoconsoGOUT), replace=TRUE, prob = c(0.8,0.2))
+  train= sensoconsoGOUT[ind==1,]
+  test=sensoconsoGOUT[ind==2,]
+  train.control=trainControl(method="CV",number=10)
+
+  modelBICcomplet0=train(Goût ~ AROME3 + PEPPERMINT3 + CHLOROPHYLLE3 + PIQUANT3 + 
+    AROME4 + AMER4 + ASTRINGENT4 + HALEINE_SAINE4 + AROME5 + 
+    PIQUANT5 + AMER5 + ASTRINGENT5 + HALEINE_SAINE5 + BOUCHE_PATEUSE5, 
+    data = train,method="lm",trControl=train.control)
+
+  RMSE_modelBICcomplet0[i]=modelBICcomplet0$results$RMSE
+  RMSESD_modelBICcomplet0[i]=modelBICcomplet0$results$RMSESD
+  MAE_modelBICcomplet0[i]=modelBICcomplet0$results$MAE
+  MAESD_modelBICcomplet0[i]=modelBICcomplet0$results$MAESD
+  rapport_RMSE_BICcomplet0[i]=RMSE_modelBICcomplet0[i]/mean(test$Goût)
+}
+moy_RMSE_modelBICcomplet0=mean(RMSE_modelBICcomplet0)
+moy_RMSESD_modelBICcomplet0=mean(RMSESD_modelBICcomplet0)
+moy_MAE_modelBICcomplet0=mean(MAE_modelBICcomplet0)
+moy_MAESD_modelBICcomplet0=mean(MAESD_modelBICcomplet0)
+moy_rapport_RMSE_BICcomplet0=mean(rapport_RMSE_BICcomplet0)
+boxplot(RMSE_modelBICcomplet0)
+summary(RMSE_modelBICcomplet0)
+boxplot(MAE_modelBICcomplet0)
+summary(MAE_modelBICcomplet0)
+boxplot(rapport_RMSE_BICcomplet0)
+summary(rapport_RMSE_BICcomplet0)
+
+```
+
+```{r}
+library(caret)
+set.seed(123)
+RMSE_modelBICselec=NULL
+RMSESD_modelBICselec=NULL
+MAE_modelBICselec=NULL
+MAESD_modelBICselec=NULL
+rapport_RMSE_BICselec=NULL
+for(i in 1:1000) {
+  ind=sample(2,nrow(data1), replace=TRUE, prob = c(0.8,0.2))
+  train= data1[ind==1,]
+  test=data1[ind==2,]
+  train.control=trainControl(method="CV",number=10)
+
+  modelBICselec=train(Goût ~ VISCOSITE2 + AROME3 + PEPPERMINT3 + CHLOROPHYLLE3 + 
+    FRAIS3 + PIQUANT3 + ASTRINGENT4 + ANESTHESIE5 + AROME5 + 
+    PIQUANT5 + ASTRINGENT5, data = train,method="lm",trControl=train.control)
+
+
+  RMSE_modelBICselec[i]=modelBICselec$results$RMSE
+  RMSESD_modelBICselec[i]=modelBICselec$results$RMSESD
+  MAE_modelBICselec[i]=modelBICselec$results$MAE
+  MAESD_modelBICselec[i]=modelBICselec$results$MAESD
+  rapport_RMSE_BICselec[i]=RMSE_modelBICselec[i]/mean(test$Goût)
+}
+
+moy_RMSE_modelBICselec=mean(RMSE_modelBICselec)
+moy_RMSESD_modelBICselec=mean(RMSESD_modelBICselec)
+moy_MAE_modelBICselec=mean(MAE_modelBICselec)
+moy_MAESD_modelBICselec=mean(MAESD_modelBICselec)
+moy_rapport_RMSE_BICselec=mean(rapport_RMSE_BICselec)
+boxplot(RMSE_modelBICselec)
+summary(RMSE_modelBICselec)
+boxplot(MAE_modelBICselec)
+summary(MAE_modelBICselec)
+boxplot(rapport_RMSE_BICselec)
+summary(rapport_RMSE_BICselec)
+
+```
+
+
+
+```{r}
+library(caret)
+set.seed(123)
+RMSE_modelAICselect=NULL
+RMSESD_modelAICselect=NULL
+MAE_modelAICselect=NULL
+MAESD_modelAICselect=NULL
+rapport_RMSE_AICselect=NULL
+for(i in 1:1000){
+  ind=sample(2,nrow(data1), replace=TRUE, prob = c(0.8,0.2))
+  train= data1[ind==1,]
+  test=data1[ind==2,]
+  train.control=trainControl(method="CV",number=10)
+
+  modelAICselect=train(Goût ~ VISCOSITE2 + AROME3 + PEPPERMINT3 + CHLOROPHYLLE3 + 
+    FRAIS3 + PIQUANT3 + SUCRE3 + ACIDE3 + RESIDUS4 + SUCRE4 + 
+    ACIDE4 + AMER4 + ASTRINGENT4 + ANESTHESIE5 + AROME5 + PIQUANT5 + 
+    AMER5 + ASTRINGENT5, data = train,method="lm",trControl=train.control)
+
+  RMSE_modelAICselect[i]=modelAICselect$results$RMSE
+  RMSESD_modelAICselect[i]=modelAICselect$results$RMSESD
+  MAE_modelAICselect[i]=modelAICselect$results$MAE
+  MAESD_modelAICselect[i]=modelAICselect$results$MAESD
+  rapport_RMSE_AICselect[i]=RMSE_modelAICselect[i]/mean(test$Goût)
+}
+moy_RMSE_modelAICselect=mean(RMSE_modelAICselect)
+moy_RMSESD_modelAICselect=mean(RMSESD_modelAICselect)
+moy_MAE_modelAICselect=mean(MAE_modelAICselect)
+moy_MAESD_modelAICselect=mean(MAESD_modelAICselect)
+moy_rapport_RMSE_AICselect=mean(rapport_RMSE_AICselect)
+boxplot(RMSE_modelAICselect)
+summary(RMSE_modelAICselect)
+boxplot(MAE_modelAICselect)
+summary(MAE_modelAICselect)
+boxplot(rapport_RMSE_AICselect)
+summary(rapport_RMSE_AICselect)
+
+```
+
+```{r}
+library(caret)
+set.seed(123)
+RMSE_modelBICnorm=NULL
+RMSESD_modelBICnorm=NULL
+MAE_modelBICnorm=NULL
+MAESD_modelBICnorm=NULL
+rapport_RMSE_BICnorm=NULL
+for(i in 1:1000){
+  ind=sample(2,nrow(sensoconsoGOUT2), replace=TRUE, prob = c(0.8,0.2))
+  train= sensoconsoGOUT2[ind==1,]
+  test=sensoconsoGOUT2[ind==2,]
+  train.control=trainControl(method="CV",number=10)
+
+  modelBICnorm=train(Goût ~ PIQUANT3 + RESIDUS3 + HALEINE_SAINE4, data =
+    train,method="lm",trControl=train.control)
+
+  RMSE_modelBICnorm[i]=modelBICnorm$results$RMSE
+  RMSESD_modelBICnorm[i]=modelBICnorm$results$RMSESD
+  MAE_modelBICnorm[i]=modelBICnorm$results$MAE
+  MAESD_modelBICnorm[i]=modelBICnorm$results$MAESD
+  rapport_RMSE_BICnorm[i]=RMSE_modelBICnorm[i]/mean(test$Goût)
+}
+moy_RMSE_modelBICnorm=mean(RMSE_modelBICnorm)
+moy_RMSESD_modelBICnorm=mean(RMSESD_modelBICnorm)
+moy_MAE_modelBICnorm=mean(MAE_modelBICnorm)
+moy_MAESD_modelBICnorm=mean(MAESD_modelBICnorm)
+moy_rapport_RMSE_BICnorm=mean(rapport_RMSE_BICnorm)
+boxplot(RMSE_modelBICnorm)
+summary(RMSE_modelBICnorm)
+boxplot(MAE_modelBICnorm)
+summary(MAE_modelBICnorm)
+boxplot(rapport_RMSE_BICnorm)
+summary(rapport_RMSE_BICnorm)
+
+```
+
+```{r}
+library(caret)
+set.seed(123)
+RMSE_modelAICnorm=NULL
+RMSESD_modelAICnorm=NULL
+MAE_modelAICnorm=NULL
+MAESD_modelAICnorm=NULL
+rapport_RMSE_AICnorm=NULL
+for(i in 1:1000){
+  ind=sample(2,nrow(data1), replace=TRUE, prob = c(0.8,0.2))
+  train= data1[ind==1,]
+  test=data1[ind==2,]
+  train.control=trainControl(method="CV",number=10)
+
+  modelAICnorm=train(Goût ~ VISCOSITE2 + AROME3 + PEPPERMINT3 + CHLOROPHYLLE3 + 
+    FRAIS3 + PIQUANT3 + SUCRE3 + ACIDE3 + RESIDUS4 + SUCRE4 + 
+    ACIDE4 + AMER4 + ASTRINGENT4 + AROME5 + PIQUANT5 + AMER5 + 
+    ASTRINGENT5, data =
+    train,method="lm",trControl=train.control)
+
+  RMSE_modelAICnorm[i]=modelAICnorm$results$RMSE
+  RMSESD_modelAICnorm[i]=modelAICnorm$results$RMSESD
+  MAE_modelAICnorm[i]=modelAICnorm$results$MAE
+  MAESD_modelAICnorm[i]=modelAICnorm$results$MAESD
+  rapport_RMSE_AICnorm[i]=RMSE_modelAICnorm[i]/mean(test$Goût)
+}
+moy_RMSE_modelAICnorm=mean(RMSE_modelAICnorm)
+moy_RMSESD_modelAICnorm=mean(RMSESD_modelAICnorm)
+moy_MAE_modelAICnorm=mean(MAE_modelAICnorm)
+moy_MAESD_modelAICnorm=mean(MAESD_modelAICnorm)
+moy_rapport_RMSE_AICnorm=mean(rapport_RMSE_AICnorm)
+boxplot(RMSE_modelAICnorm)
+summary(RMSE_modelAICnorm)
+boxplot(MAE_modelAICnorm)
+summary(MAE_modelAICnorm)
+boxplot(rapport_RMSE_AICnorm)
+summary(rapport_RMSE_AICnorm)
+
+```
+
+```{r}
+library(caret)
+set.seed(123)
+RMSE_modelBICnormcorr=NULL
+RMSESD_modelBICnormcorr=NULL
+MAE_modelBICnormcorr=NULL
+MAESD_modelBICnormcorr=NULL
+rapport_RMSE_BICnormcorr=NULL
+for(i in 1:1000){
+  ind=sample(2,nrow(sensoconsoGOUT3), replace=TRUE, prob = c(0.8,0.2))
+  train= sensoconsoGOUT3[ind==1,]
+  test=sensoconsoGOUT3[ind==2,]
+  train.control=trainControl(method="CV",number=10)
+
+  modelBICnormcorr=train(Goût ~ FRAIS3 + PIQUANT3, data =
+    train,method="lm",trControl=train.control)
+
+  RMSE_modelBICnormcorr[i]=modelBICnormcorr$results$RMSE
+  RMSESD_modelBICnormcorr[i]=modelBICnormcorr$results$RMSESD
+  MAE_modelBICnormcorr[i]=modelBICnormcorr$results$MAE
+  MAESD_modelBICnormcorr[i]=modelBICnormcorr$results$MAESD
+  rapport_RMSE_BICnormcorr[i]=RMSE_modelBICnormcorr[i]/mean(test$Goût)
+}
+moy_RMSE_modelBICnormcorr=mean(RMSE_modelBICnormcorr)
+moy_RMSESD_modelBICnormcorr=mean(RMSESD_modelBICnormcorr)
+moy_MAE_modelBICnormcorr=mean(MAE_modelBICnormcorr)
+moy_MAESD_modelBICnormcorr=mean(MAESD_modelBICnormcorr)
+moy_rapport_RMSE_BICnormcorr=mean(rapport_RMSE_BICnormcorr)
+boxplot(RMSE_modelBICnormcorr)
+summary(RMSE_modelBICnormcorr)
+boxplot(MAE_modelBICnormcorr)
+summary(MAE_modelBICnormcorr)
+boxplot(rapport_RMSE_BICnormcorr)
+summary(rapport_RMSE_BICnormcorr)
+
+```
+
+```{r}
+library(caret)
+set.seed(123)
+RMSE_modelAICnormcorr=NULL
+RMSESD_modelAICnormcorr=NULL
+MAE_modelAICnormcorr=NULL
+MAESD_modelAICnormcorr=NULL
+rapport_RMSE_AICnormcorr=NULL
+for(i in 1:1000){
+  ind=sample(2,nrow(sensoconsoGOUT3), replace=TRUE, prob = c(0.8,0.2))
+  train= sensoconsoGOUT3[ind==1,]
+  test=sensoconsoGOUT3[ind==2,]
+  train.control=trainControl(method="CV",number=10)
+
+  modelAICnormcorr=train(Goût ~ ODEUR1 + VISCOSITE2 + FRAIS3 + PIQUANT3 + 
+    AMER3 + ACIDE4 + AROME5 + BOUCHE_PATEUSE5, data =
+    train,method="lm",trControl=train.control)
+
+  RMSE_modelAICnormcorr[i]=modelAICnormcorr$results$RMSE
+  RMSESD_modelAICnormcorr[i]=modelAICnormcorr$results$RMSESD
+  MAE_modelAICnormcorr[i]=modelAICnormcorr$results$MAE
+  MAESD_modelAICnormcorr[i]=modelAICnormcorr$results$MAESD
+  rapport_RMSE_AICnormcorr[i]=RMSE_modelAICnormcorr[i]/mean(test$Goût)
+}
+moy_RMSE_modelAICnormcorr=mean(RMSE_modelAICnormcorr)
+moy_RMSESD_modelAICnormcorr=mean(RMSESD_modelAICnormcorr)
+moy_MAE_modelAICnormcorr=mean(MAE_modelAICnormcorr)
+moy_MAESD_modelAICnormcorr=mean(MAESD_modelAICnormcorr)
+moy_rapport_RMSE_AICnormcorr=mean(rapport_RMSE_AICnormcorr)
+boxplot(RMSE_modelAICnormcorr)
+summary(RMSE_modelAICnormcorr)
+boxplot(MAE_modelAICnormcorr)
+summary(MAE_modelAICnormcorr)
+boxplot(rapport_RMSE_AICnormcorr)
+summary(rapport_RMSE_AICnormcorr)
+
+```
+
+
+```{r}
+library(caret)
+set.seed(123)
+RMSE_modelAICnorm2=NULL
+RMSESD_modelAICnorm2=NULL
+MAE_modelAICnorm2=NULL
+MAESD_modelAICnorm2=NULL
+rapport_RMSE_AICnorm2=NULL
+for(i in 1:1000){
+  ind=sample(2,nrow(sensoconsoGOUT2), replace=TRUE, prob = c(0.8,0.2))
+  train= sensoconsoGOUT2[ind==1,]
+  test=sensoconsoGOUT2[ind==2,]
+  train.control=trainControl(method="CV",number=10)
+
+  modelAICnorm2=train(Goût ~ PIQUANT3 + ASTRINGENT3 + RESIDUS3 + ASTRINGENT4 + 
+    HALEINE_SAINE4 + FRAIS5, data =
+    train,method="lm",trControl=train.control)
+
+  RMSE_modelAICnorm2[i]=modelAICnorm2$results$RMSE
+  RMSESD_modelAICnorm2[i]=modelAICnorm2$results$RMSESD
+  MAE_modelAICnorm2[i]=modelAICnorm2$results$MAE
+  MAESD_modelAICnorm2[i]=modelAICnorm2$results$MAESD
+  rapport_RMSE_AICnorm2[i]=RMSE_modelAICnorm2[i]/mean(test$Goût)
+}
+moy_RMSE_modelAICnorm2=mean(RMSE_modelAICnorm2)
+moy_RMSESD_modelAICnorm2=mean(RMSESD_modelAICnorm2)
+moy_MAE_modelAICnorm2=mean(MAE_modelAICnorm2)
+moy_MAESD_modelAICnorm2=mean(MAESD_modelAICnorm2)
+moy_rapport_RMSE_AICnorm2=mean(rapport_RMSE_AICnorm2)
+boxplot(RMSE_modelAICnorm2)
+summary(RMSE_modelAICnorm2)
+boxplot(MAE_modelAICnorm2)
+summary(MAE_modelAICnorm2)
+boxplot(rapport_RMSE_AICnorm2)
+summary(rapport_RMSE_AICnorm2)
+
+```
+
+```{r}
+library(caret)
+set.seed(123)
+RMSE_modelAICselect2=NULL
+RMSESD_modelAICselect2=NULL
+MAE_modelAICselect2=NULL
+MAESD_modelAICselect2=NULL
+rapport_RMSE_AICselect2=NULL
+for(i in 1:1000){
+  ind=sample(2,nrow(data1), replace=TRUE, prob = c(0.8,0.2))
+  train= data1[ind==1,]
+  test=data1[ind==2,]
+  train.control=trainControl(method="CV",number=10)
+
+  modelAICselect2=train(Goût ~ VISCOSITE2 + AROME3 + PEPPERMINT3 + CHLOROPHYLLE3 + 
+    FRAIS3 + PIQUANT3 + SUCRE3 + ACIDE3 + RESIDUS4 + SUCRE4 + 
+    ACIDE4 + AMER4 + ASTRINGENT4 + AROME5 + PIQUANT5 + AMER5 + 
+    ASTRINGENT5, data = train,method="lm",trControl=train.control)
+
+  RMSE_modelAICselect2[i]=modelAICselect2$results$RMSE
+  RMSESD_modelAICselect2[i]=modelAICselect2$results$RMSESD
+  MAE_modelAICselect2[i]=modelAICselect2$results$MAE
+  MAESD_modelAICselect2[i]=modelAICselect2$results$MAESD
+  rapport_RMSE_AICselect2[i]=RMSE_modelAICselect2[i]/mean(test$Goût)
+}
+moy_RMSE_modelAICselect2=mean(RMSE_modelAICselect2)
+moy_RMSESD_modelAICselect2=mean(RMSESD_modelAICselect2)
+moy_MAE_modelAICselect2=mean(MAE_modelAICselect2)
+moy_MAESD_modelAICselect2=mean(MAESD_modelAICselect2)
+moy_rapport_RMSE_AICselect2=mean(rapport_RMSE_AICselect2)
+boxplot(RMSE_modelAICselect2)
+summary(RMSE_modelAICselect2)
+boxplot(MAE_modelAICselect2)
+summary(MAE_modelAICselect2)
+boxplot(rapport_RMSE_AICselect2)
+summary(rapport_RMSE_AICselect2)
+
+```
+# Tableau des performances
+
+```{r}
+moy_RMSE=c(round(moy_RMSE_modelBICcomplet,3),
+           round(moy_RMSE_modelBICcomplet0,3),
+           round(moy_RMSE_modelBICselec,3),
+           round(moy_RMSE_modelAICselect2,3),
+           round(moy_RMSE_modelBICnorm,3),
+           round(moy_RMSE_modelAICnorm2,3),
+           round(moy_RMSE_modelBICnormcorr,3),
+           round(moy_RMSE_modelAICnormcorr,3)
+           )
+moy_RMSESD=c(round(moy_RMSESD_modelBICcomplet,3),
+           round(moy_RMSESD_modelBICcomplet0,3),
+           round(moy_RMSESD_modelBICselec,3),
+           round(moy_RMSESD_modelAICselect2,3),
+           round(moy_RMSESD_modelBICnorm,3),
+           round(moy_RMSESD_modelAICnorm2,3),
+           round(moy_RMSESD_modelBICnormcorr,3),
+           round(moy_RMSESD_modelAICnormcorr,3)
+)
+
+moy_MAE=c(round(moy_MAE_modelBICcomplet,3),
+           round(moy_MAE_modelBICcomplet0,3),
+           round(moy_MAE_modelBICselec,3),
+           round(moy_MAE_modelAICselect2,3),
+           round(moy_MAE_modelBICnorm,3),
+           round(moy_MAE_modelAICnorm2,3),
+           round(moy_MAE_modelBICnormcorr,3),
+           round(moy_MAE_modelAICnormcorr,3))
+
+moy_MAESD=c(round(moy_MAESD_modelBICcomplet,3),
+           round(moy_MAESD_modelBICcomplet0,3),
+           round(moy_MAESD_modelBICselec,3),
+           round(moy_MAESD_modelAICselect2,3),
+           round(moy_MAESD_modelBICnorm,3),
+           round(moy_MAESD_modelAICnorm2,3),
+           round(moy_MAESD_modelBICnormcorr,3),
+           round(moy_MAESD_modelAICnormcorr,3))
+
+moy_rapport_RMSE=c(round(moy_rapport_RMSE_BICcomplet,3),
+           round(moy_rapport_RMSE_BICcomplet0,3),
+           round(moy_rapport_RMSE_BICselec,3),
+           round(moy_rapport_RMSE_AICselect2,3),
+           round(moy_rapport_RMSE_BICnorm,3),
+           round(moy_rapport_RMSE_AICnorm2,3),
+           round(moy_rapport_RMSE_BICnormcorr,3),
+           round(moy_rapport_RMSE_AICnormcorr,3))
+
+
+
+tabRMSE=data.frame(cbind(moy_RMSE,moy_RMSESD,moy_MAE,moy_MAESD,moy_rapport_RMSE))
+rownames(tabRMSE)=c("modBICcomplet","modBICcomplet2","modBICcorr","modAICcorr2","modBICnorm","modAICnorm2","modBICnormcorr","modAICnormcorr")
+colnames(tabRMSE)=c("moy_RMSE","moy_RMSESD","moy_MAE","moy_MAESD","moy_rapport_RMSE")
+tabRMSE
+```
