@@ -1,0 +1,384 @@
+---
+title: "Analyses des données de l'Aromathéque"
+output: html_document
+---
+
+# Chargement des librairies
+```{r}
+library(FactoMineR)
+library(pls)
+library(glmnet)
+library(ClustOfVar)
+library(ade4)
+library(factoextra)
+library(kableExtra)
+library(ggpubr)
+library(ggplot2)
+library(missMDA)
+library("corrplot")
+library("readxl")
+library(stringr)
+```
+
+
+# Récupération des données sensorielles
+```{r}
+dataBDB = read_excel("J:/analsens_R01/Stagiaire/Julie 2021-2022/Aromatheque/Données Aromathèque\\BDB Donnees brutes memoire.xlsx")
+dataBDB = as.data.frame(dataBDB[colSums(is.na(dataBDB) | dataBDB == 0) != nrow(dataBDB)])
+```
+
+# Repérer les valeurs manquantes
+
+```{r}
+which(is.na(dataBDB),arr.ind=TRUE)
+```
+
+# Juges
+
+```{r}
+#library(stringr)
+Nb_CJ=NULL
+for(i in unique(dataBDB$CJ)){
+  Nb_CJ[i]=sum(str_count(dataBDB$CJ, i))
+}
+Nb_CJ
+```
+Les tests sont réalisés par 10 juges. Chaque juge a testé les 20 produits.
+
+```{r}
+library(summarytools)
+descr(dataBDB$FRAIS3)
+by(dataBDB$FRAIS3,dataBDB$ID_Aroma, descr,transpose= T)
+```
+
+# Kruskal Wallis : repérer les descripteurs discriminants
+
+```{r}
+pvalbdb=NULL
+desc=NULL
+for(i in 8:56){
+  pvalbdb[i]=kruskal.test(dataBDB[,i]~ID_Aroma, dataBDB)$p.value
+  desc[i]=names(dataBDB[i])
+}
+
+pvaluebdb = data.frame(desc[8:56],pvalbdb[8:56])
+#colnames(pvaluebdb)=c("Variables", "P-valeur")
+#kbl(pvaluebdb)
+```
+
+# Calcul des moyennes ajustées (ou simple si tous les juges on vu tous les produits)
+
+```{r}
+library(lme4)
+library(emmeans)
+library(data.table)
+
+f_estim <- function(data, indice_descripteur1){
+  
+  data_estim <- data.table()
+  
+  for (k in indice_descripteur1:ncol(data)){
+    estim <- emmeans(lmer(data[,k] ~ ID_Aroma + (1|CJ), data), pairwise ~ #ID_Aroma)$emmeans
+    res <- as.data.frame(estim)["emmean"]$emmean
+    names(res) <- t(as.data.frame(estim)["ID_Aroma"])
+    data_estim <- rbind(data_estim, as.data.table(t(res)), use.names = TRUE, fill = #TRUE)
+    
+  }
+  
+  data_estim <- as.data.frame(t(data_estim))
+  names(data_estim) <- names(data[, (indice_descripteur1):ncol(data)])
+  rownames(data_estim) <- names(res)
+  
+  return(data_estim)
+}
+
+
+start.time <- Sys.time()
+moyenne_ajuste_bdb <- f_estim(dataBDB, indice_descripteur1 = 8) # compute execution 
+end.time <- Sys.time()
+
+print(end.time - start.time)
+
+path <- "J:/analsens_R01/Stagiaire/Julie 2021-2022/Aromatheque/memoire/"
+save(moyenne_ajuste_bdb, file = paste(path,"moyenne_ajuste_BDB.RData",sep=""))
+
+```
+
+# Charger tableau des moyennes ajustées bains de bouche
+
+```{r}
+path_data <- "J:/analsens_R01/Stagiaire/Julie 2021-2022/Aromatheque/memoire/"
+load(paste(path_data,"moyenne_ajuste_BDB.RData",sep=""))
+```
+
+# Création du tableau des moyennes ajustées des descripteurs discriminants seulement
+```{r}
+dataACP = moyenne_ajuste_bdb[,c(2,11,4,13,18,19,23,24,26,29,30,31,37,48,41)]
+```
+
+
+## ACP (senso)
+
+```{r}
+acp_bdb = PCA(dataACP, graph = FALSE,ncp=2)
+eig.val <- get_eigenvalue(acp_bdb)
+eig.val
+fviz_eig(acp_bdb, addlabels = TRUE, ylim = c(0, 50))
+```
+
+```{r}
+round(acp_bdb$var$cos2,2)
+# Graph des individus et des variables
+fviz_pca_var(acp_bdb, col.var = "black",select.var = list(cos2=0.7),repel = T)
+fviz_pca_ind(acp_bdb, col.ind = "black",repel = T)
+```
+
+```{r}
+#biplot
+fviz_pca_biplot(acp_bdb, repel = TRUE,
+                col.var = "#2E9FDF", select.var = list(cos2=0.7), # Couleur des variables 
+)
+```
+
+
+## HCPC (classification hyérarchique sur composantes principales) (senso)
+
+```{r}
+hcpc_bdb <- HCPC(acp_bdb ,consol=TRUE, method="ward",graph = TRUE)
+Inertie=hcpc_bdb$call$t$inert.gain
+#InertieInter_sur_InertieTotal = 9.015513716/15 =  0.6010342 on recupère 60% d'information en séparent les ind en 2 classes.
+
+
+hcpc_2class <- HCPC(acp_bdb ,nb.clust=2,consol=TRUE, method="ward",graph = TRUE)
+fviz_dend(hcpc_2class, 
+          cex = 0.7,                     # Taille du text
+          palette = "jco",               # Palette de couleur ?ggpubr::ggpar
+          rect = TRUE, rect_fill = TRUE, # Rectangle autour des groupes
+          rect_border = "jco",           # Couleur du rectangle
+          labels_track_height = 0.8      # Augment l'espace pour le texte
+)
+
+fviz_cluster(hcpc_2class,
+             repel = TRUE,            # Evite le chevauchement des textes
+             show.clust.cent = TRUE, # Montre le centre des clusters
+             palette = "jco",         # Palette de couleurs, voir ?ggpubr::ggpar
+             ggtheme = theme_minimal(),
+             main = "Factor map"
+)
+
+hcpc_2class$data.clust
+hcpc_2class$desc.var
+hcpc_2class$desc.axes
+hcpc_2class$desc.ind
+
+```
+
+
+# Récupération des données consommateurs 
+
+```{r}
+dataconsoBDB = data.frame(read_excel("J:/analsens_R01/Stagiaire/Julie 2021-2022/Aromatheque/Données Aromathèque/conso\\conso_bdb.xlsx"))
+dataconsoBDB$produit = as.factor(dataconsoBDB$produit)
+```
+
+# Recodage des modalités
+
+```{r}
+dataconsoBDB$JAR_odeur[dataconsoBDB$JAR_odeur=="Un peu trop faible"]=2
+dataconsoBDB$JAR_odeur[dataconsoBDB$JAR_odeur=="Juste comme il faut"]=3
+dataconsoBDB$JAR_odeur[dataconsoBDB$JAR_odeur=="Un peu trop forte"]=4
+dataconsoBDB$JAR_odeur[dataconsoBDB$JAR_odeur=="Beaucoup trop faible"]=1
+dataconsoBDB$JAR_odeur[dataconsoBDB$JAR_odeur=="Beaucoup trop forte"]=5
+dataconsoBDB$JAR_odeur=as.numeric(dataconsoBDB$JAR_odeur)
+
+dataconsoBDB$JAR_intensite_gout[dataconsoBDB$JAR_intensite_gout=="Pas assez prononcée"]=2
+dataconsoBDB$JAR_intensite_gout[dataconsoBDB$JAR_intensite_gout=="Juste comme il faut"]=3
+dataconsoBDB$JAR_intensite_gout[dataconsoBDB$JAR_intensite_gout=="Un peu trop prononcée"]=4
+dataconsoBDB$JAR_intensite_gout[dataconsoBDB$JAR_intensite_gout=="Vraiment pas assez prononcée"]=1
+dataconsoBDB$JAR_intensite_gout[dataconsoBDB$JAR_intensite_gout=="Vraiment trop prononcée"]=5
+dataconsoBDB$JAR_intensite_gout=as.numeric(dataconsoBDB$JAR_intensite_gout)
+
+dataconsoBDB$JAR_sucre[dataconsoBDB$JAR_sucre=="Pas assez sucré"]=2
+dataconsoBDB$JAR_sucre[dataconsoBDB$JAR_sucre=="Juste comme il faut"]=3
+dataconsoBDB$JAR_sucre[dataconsoBDB$JAR_sucre=="Un peu trop sucré"]=4
+dataconsoBDB$JAR_sucre[dataconsoBDB$JAR_sucre=="Vraiment pas assez sucré"]=1
+dataconsoBDB$JAR_sucre[dataconsoBDB$JAR_sucre=="Vraiment trop sucré"]=5
+dataconsoBDB$JAR_sucre=as.numeric(dataconsoBDB$JAR_sucre)
+
+dataconsoBDB$JAR_piquant[dataconsoBDB$JAR_piquant=="Pas assez piquant"]=2
+dataconsoBDB$JAR_piquant[dataconsoBDB$JAR_piquant=="Juste comme il faut"]=3
+dataconsoBDB$JAR_piquant[dataconsoBDB$JAR_piquant=="Un peu trop piquant"]=4
+dataconsoBDB$JAR_piquant[dataconsoBDB$JAR_piquant=="Vraiment pas assez piquant"]=1
+dataconsoBDB$JAR_piquant[dataconsoBDB$JAR_piquant=="Vraiment trop piquant"]=5
+dataconsoBDB$JAR_piquant=as.numeric(dataconsoBDB$JAR_piquant)
+
+dataconsoBDB$JAR_amer[dataconsoBDB$JAR_amer=="Pas assez amer"]=2
+dataconsoBDB$JAR_amer[dataconsoBDB$JAR_amer=="Juste comme il faut"]=3
+dataconsoBDB$JAR_amer[dataconsoBDB$JAR_amer=="Un peu trop amer"]=4
+dataconsoBDB$JAR_amer[dataconsoBDB$JAR_amer=="Vraiment pas assez amer"]=1
+dataconsoBDB$JAR_amer[dataconsoBDB$JAR_amer=="Vraiment trop amer"]=5
+dataconsoBDB$JAR_amer=as.numeric(dataconsoBDB$JAR_amer)
+
+dataconsoBDB$JAR_fraicheur[dataconsoBDB$JAR_fraicheur=="Pas assez frais"]=2
+dataconsoBDB$JAR_fraicheur[dataconsoBDB$JAR_fraicheur=="Juste comme il faut"]=3
+dataconsoBDB$JAR_fraicheur[dataconsoBDB$JAR_fraicheur=="Un peu trop frais"]=4
+dataconsoBDB$JAR_fraicheur[dataconsoBDB$JAR_fraicheur=="Vraiment pas assez frais"]=1
+dataconsoBDB$JAR_fraicheur[dataconsoBDB$JAR_fraicheur=="Vraiment trop frais"]=5
+dataconsoBDB$JAR_fraicheur=as.numeric(dataconsoBDB$JAR_fraicheur)
+
+dataconsoBDB$correspondance_gout_BDB[dataconsoBDB$correspondance_gout_BDB=="Pas d’accord"]=2
+dataconsoBDB$correspondance_gout_BDB[dataconsoBDB$correspondance_gout_BDB=="D’accord"]=3
+dataconsoBDB$correspondance_gout_BDB[dataconsoBDB$correspondance_gout_BDB=="Pas du tout d’accord"]=1
+dataconsoBDB$correspondance_gout_BDB[dataconsoBDB$correspondance_gout_BDB=="Tout à fait d’accord"]=4
+dataconsoBDB$correspondance_gout_BDB=as.numeric(dataconsoBDB$correspondance_gout_BDB)
+
+dataconsoBDB$IA[dataconsoBDB$IA=="Non probablement pas"]=2
+dataconsoBDB$IA[dataconsoBDB$IA=="Oui probablement"]=3
+dataconsoBDB$IA[dataconsoBDB$IA=="Non certainement pas"]=1
+dataconsoBDB$IA[dataconsoBDB$IA=="Oui certainement"]=4
+dataconsoBDB$IA=as.numeric(dataconsoBDB$IA)
+
+dataconsoBDB=as.data.frame(dataconsoBDB)
+```
+
+
+# Recherche des valeurs manquantes
+```{r}
+which(is.na(dataconsoBDB),arr.ind=TRUE)
+```
+
+# Juges
+
+```{r}
+Nb_CJp=NULL
+for(i in unique(dataconsoBDB$ID)){
+  Nb_CJp[i]=sum(dataconsoBDB$ID==i)
+}
+Nb_CJp
+```
+
+Tous les consommateurs n'ont pas vu le même nombre de fois tous les produits (en moyenne 7 produits sont vus).
+
+# Nombre de consommateurs 
+```{r}
+length(unique(dataconsoBDB$ID))
+```
+
+# Kruskall-Wallis : Recherche des variables discriminantes
+
+```{r}
+pvalbdbc=NULL
+desc=NULL
+for(i in 3:23){
+  pvalbdbc[i]=kruskal.test(dataconsoBDB[,i]~produit, dataconsoBDB)$p.value
+  desc[i]=names(dataconsoBDB[i])
+}
+
+pvalueconsobdb = data.frame(desc[3:23],pvalbdbc[3:23])
+pvalueconsobdb
+```
+
+# moyenne ajusté
+
+```{r}
+library(lme4)
+library(emmeans)
+library(data.table)
+library(foreach)
+library(parallel)
+
+f_estim <- function(data, indice_descripteur1){
+  
+  data_estim <- data.table()
+  
+  for (k in indice_descripteur1:ncol(data)){
+    estim <- emmeans(lmer(data[,k] ~ produit + (1|ID), data), pairwise ~ produit)$emmeans
+    res <- as.data.frame(estim)["emmean"]$emmean
+    names(res) <- t(as.data.frame(estim)["produit"])
+    data_estim <- rbind(data_estim, as.data.table(t(res)), use.names = TRUE, fill = TRUE)
+    
+  }
+  
+  data_estim <- as.data.frame(t(data_estim))
+  names(data_estim) <- names(data[, (indice_descripteur1):ncol(data)])
+  rownames(data_estim) <- names(res)
+  
+  return(data_estim)
+}
+
+start.time <- Sys.time()
+moyenne_ajuste_BDB_conso <- f_estim(dataconsoBDB, indice_descripteur1 = 3) # compute execution time !
+end.time <- Sys.time()
+
+print(end.time - start.time)
+
+path <- "J:/analsens_R01/Stagiaire/Julie 2021-2022/Aromatheque/memoire/"
+save(moyenne_ajuste_BDB_conso, file = paste(path,"moyenne_ajuste_BDB_conso.RData",sep=""))
+
+```
+
+# Chargement des données bains de bouche (moyennes ajustées)
+```{r}
+path_data <- "J:/analsens_R01/Stagiaire/Julie 2021-2022/Aromatheque/memoire/"
+load(paste(path_data,"moyenne_ajuste_BDB_conso.RData",sep=""))
+```
+
+# Création du tableau des moyennes ajustées des variables discriminantes seulement
+```{r}
+dataACPconso=moyenne_ajuste_BDB_conso[,-c(2)]
+rownames(dataACPconso)=c("Arome1", "Arome2", "Arome3", "Arome4", "Arome5", "Arome6", "Arome7","Arome10","Arome11","Arome12","Arome8","Arome9","Arome13","Arome20", "Arome14", "Arome15", "Arome16", "Arome17","Arome18", "Arome19")               
+```
+
+# ACP (conso)
+
+```{r}
+acp_conso = PCA(dataACPconso,nc=2, graph = FALSE,quanti.sup=c(1,20))
+eig.val <- get_eigenvalue(acp_conso)
+head(eig.val)
+```
+
+```{r}
+round(acp_conso$var$cos2,2)
+
+#Graph des indivudus et variables
+fviz_pca_var(acp_conso, col.var = "black",select.var = list(cos2=0.7),repel = T)
+fviz_pca_ind(acp_conso, col.ind = "black",repel = T)
+```
+
+```{r}
+#biplot
+fviz_pca_biplot(acp_conso, repel = TRUE,
+                col.var = "#2E9FDF", select.var = list(cos2=0.7)
+)
+```
+
+# HCPC (conso)
+
+```{r}
+hcpc_bdbcon <- HCPC(acp_conso ,consol=TRUE, method="ward",graph = TRUE)
+Inertie=hcpc_bdbcon$call$t$inert.gain
+#On recupère 72% d'information en séparent les ind en 4 classes.
+
+
+hcpc_2classcons <- HCPC(acp_conso ,nb.clust=4,consol=TRUE, method="ward",graph = TRUE)
+fviz_dend(hcpc_2classcons, 
+          cex = 0.7,                     # Taille du text
+          palette = "jco",               # Palette de couleur ?ggpubr::ggpar
+          rect = TRUE, rect_fill = TRUE, # Rectangle autour des groupes
+          rect_border = "jco",           # Couleur du rectangle
+          labels_track_height = 0.8      # Augment l'espace pour le texte
+)
+
+fviz_cluster(hcpc_2classcons,
+             repel = TRUE,            # Evite le chevauchement des textes
+             show.clust.cent = TRUE, # Montre le centre des clusters
+             palette = "jco",         # Palette de couleurs, voir ?ggpubr::ggpar
+             ggtheme = theme_minimal(),
+             main = "Factor map"
+)
+
+hcpc_2classcons$data.clust
+hcpc_2classcons$desc.var
+hcpc_2classcons$desc.axes
+hcpc_2classcons$desc.ind
+```
