@@ -504,6 +504,8 @@ F1_comp_groupe4=function(x,data){
         train= data[ind==1,]
         test=data[ind==2,]
         
+        train.control=caret::trainControl(method="CV",number=10)
+        
         modelcomp3 <- caret::train(class_jar_gout_4~., data = train[,-c(40,39,41)],method="rf", ntree = 500,trControl=train.control)
 
 
@@ -667,6 +669,7 @@ F1_corr_groupe4=function(x,data){
         train4= data[ind4==1,]
         test4=data[ind4==2,]
         
+        train.control=caret::trainControl(method="CV",number=10)
         
         modelcorr3 <-caret::train(class_jar_gout_4~., data = train4[,-c(34,33,32)],method="rf", ntree = 500,trControl=train.control)
 
@@ -716,16 +719,16 @@ F1_corr_groupe4=function(x,data){
 
 
 start.time <- Sys.time()
-func_F1_comp_groupe4=F1_comp_groupe3(1000,sensogroupe)
-func_F1_norm_groupe4=F1_norm_groupe3(1000,sensogroupe2)
-func_F1_normcorr_groupe4=F1_normcorr_groupe3(1000,sensogroupe3)
-func_F1_corr_groupe4=F1_corr_groupe3(1000,sensogroupe4)
+func_F1_comp_groupe4=F1_comp_groupe4(1000,sensogroupe)
+func_F1_norm_groupe4=F1_norm_groupe4(1000,sensogroupe2)
+func_F1_normcorr_groupe4=F1_normcorr_groupe4(1000,sensogroupe3)
+func_F1_corr_groupe4=F1_corr_groupe4(1000,sensogroupe4)
 end.time <- Sys.time()
 
 print(end.time-start.time)
 ```
-# Tableau des performances
 
+# Tableau des performances
 ```{r}
 #NNS=non normalité supp
 #CS=corrélation supp
@@ -738,4 +741,204 @@ moy_F1=data.frame(moy_F1_groupe1,moy_F1_groupe2,moy_F1_groupe3)
 rownames(moy_F1)=c("complet","NNS","NNS+CS","CS")
 moy_F1
 
+```
+# Optimisation des modèles retenus par l'impurté de GINI.
+# Modèle 1
+```{r}
+modelnormalite <- caret::train(class_jar_gout_2~., data = sensogroupe2[,-c(30,29,27)],method="rf", ntree = 500)
+V=varImp(modelnormalite)
+ggplot2::ggplot(V) 
+```
+
+```{r}
+data_normaliteGINI=data.frame(sensogroupe2[,c("HALEINE_SAINE4","HALEINE_SAINE5","FRAIS4","AROME4","FRAIS5","AROME5","ODEUR1","class_jar_gout_2")])
+```
+
+```{r warning=FALSE}
+
+F1_normaliteGINI=function(x,data){
+  set.seed(123)
+  F1=foreach(i=1:x,.combine=cbind)%dopar%{
+        ind2=sample(2,nrow(data), replace=TRUE, prob = c(0.8,0.2))
+        train2= data[ind2==1,]
+        test2=data[ind2==2,]
+        
+        train.control=caret::trainControl(method="CV",number=10)
+        
+        modelnormalite <- caret::train(class_jar_gout_2~., data = train2,method="rf", ntree = 500,trControl=train.control)
+
+        pred2=predict(modelnormalite, test2[,-c(8)])
+        #F1_macro_normalite2[i]=ScoreF1_macro(test2$class_jar_gout_2, pred2, 2)
+        F1_score_normalite=caret::confusionMatrix(pred2,test2$class_jar_gout_2, mode = "everything")$byClass[7]
+
+  }
+  
+    
+  moy_F1_score_normalite=mean(F1[!is.na(F1)])
+  
+  return(list(moy_F1_normalite=as.numeric(moy_F1_score_normalite),F1_normalite=as.numeric(F1)))
+}
+
+start.time <- Sys.time()
+func_F1_normalite_GINI=F1_normaliteGINI(1000,data_normaliteGINI)
+# Estimation ends...
+end.time <- Sys.time()
+
+# Time taken by estimation :
+print(end.time - start.time)
+```
+```{r}
+summary(func_F1_normalite$F1_normalite)
+```
+
+# Modèle 2
+```{r}
+modelnormcorr2 <-caret::train(class_jar_gout_3~., data = sensogroupe3[,-c(23,21,20)],method="rf", ntree = 500)
+V2=varImp(modelnormcorr2)
+ggplot2::ggplot(V2) 
+```
+
+```{r}
+data_normcorrGINI=data.frame(sensogroupe2[,c("HALEINE_SAINE5","AROME4","AROME5","ODEUR1","ASTRINGENT4","VISCOSITE2","class_jar_gout_3")])
+```
+
+```{r warning=FALSE}
+
+library(doParallel)
+F1_normcorr_groupe3GINI=function(x,data){
+  set.seed(123)
+    F1_normcorr=foreach(i=1:x,.combine=cbind,.packages=c("caret"))%dopar%{
+    
+        ind3=sample(2,nrow(data), replace=TRUE, prob = c(0.8,0.2))
+        train3= data[ind3==1,]
+        test3=data[ind3==2,]
+        
+        
+        train.control=caret::trainControl(method="CV",number=10)
+        
+        modelnormcorr2 <-caret::train(class_jar_gout_3~., data = train3,method="rf", ntree = 500,trControl=train.control)
+        
+        
+        pred3=predict(modelnormcorr2, test3[,-c(7)])
+        F1_class1=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_3,  mode = "everything")$byClass)$F1[1]
+        F1_class2=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_3,  mode = "everything")$byClass)$F1[2]
+        F1_class3=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_3,  mode = "everything")$byClass)$F1[3]
+        
+        preci_class1=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_3,  mode = "everything")$byClass)$Precision[1]
+        preci_class2=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_3, mode = "everything")$byClass)$Precision[2]
+        preci_class3=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_3, mode = "everything")$byClass)$Precision[3]
+        
+        recall_class1=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_3, mode = "everything")$byClass)$Recall[1]
+        recall_class2=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_3, mode = "everything")$byClass)$Recall[2]
+        recall_class3=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_3, mode = "everything")$byClass)$Recall[3]
+        
+        F1_class1[F1_class1=="NaN"]=0
+        F1_class2[F1_class2=="NaN"]=0
+        F1_class3[F1_class3=="NaN"]=0
+        
+        preci_class1[preci_class1=="NaN"]=0
+        preci_class2[preci_class2=="NaN"]=0
+        preci_class3[preci_class3=="NaN"]=0
+        
+        recall_class1[recall_class1=="NaN"]=0
+        recall_class2[recall_class2=="NaN"]=0
+        recall_class3[recall_class3=="NaN"]=0
+        
+        F1_class=c(F1_class1,F1_class2,F1_class3)
+        preci_class=c(preci_class1,preci_class2,preci_class3)
+        recall_class=c(recall_class1,recall_class2,recall_class3)
+        
+        F1_macro=mean(F1_class[!is.na(F1_class)])
+        precision=mean(preci_class[!is.na(preci_class)])
+        recall=mean(recall_class[!is.na(recall_class)])
+        
+        
+        perf=t(data.frame(F1=F1_macro,precision=precision,recall=recall,F1_class1=F1_class1,F1_class2=F1_class2,F1_class3=F1_class3,preci_class1=preci_class1,preci_class2=preci_class2,preci_class3=preci_class3,recall_class1=recall_class1,recall_class2=recall_class2,recall_class3=recall_class3))
+    }
+  moy=rowMeans(F1_normcorr)
+  return(list(moy=moy[1:3],tab=data.frame(F1_normcorr)))
+}  
+
+start.time <- Sys.time()
+func_F1_normcorr_groupe3GINI=F1_normcorr_groupe3GINI(1000,data_normcorrGINI)
+end.time <- Sys.time()
+
+print(end.time-start.time)
+```
+# Modèle 3
+
+```{r}
+modelnormcorr3 <-caret::train(class_jar_gout_4~., data = sensogroupe3[,-c(22,21,20)],method="rf", ntree = 500)
+V3=varImp(modelnormcorr3)
+ggplot2::ggplot(V3) 
+```
+
+```{r}
+data_normcorrGINI2=data.frame(sensogroupe2[,c("HALEINE_SAINE5","AROME4","AROME5","ODEUR1","AMER3","SUCRE3","class_jar_gout_4")])
+```
+
+```{r warning=FALSE}
+
+library(doParallel)
+F1_normcorr_groupe4=function(x,data){
+  set.seed(123)
+    F1_normcorr=foreach(i=1:x,.combine=cbind,.packages=c("caret"))%dopar%{
+    
+        ind3=sample(2,nrow(data), replace=TRUE, prob = c(0.8,0.2))
+        train3= data[ind3==1,]
+        test3=data[ind3==2,]
+        
+        
+        train.control=caret::trainControl(method="CV",number=10)
+        
+        modelnormcorr3 <-caret::train(class_jar_gout_4~., data = train3,method="rf", ntree = 500,trControl=train.control)
+        
+        
+        
+        pred3=predict(modelnormcorr3, test3[,-c(7)])
+        F1_class1=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_4,  mode = "everything")$byClass)$F1[1]
+        F1_class2=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_4,  mode = "everything")$byClass)$F1[2]
+        F1_class3=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_4,  mode = "everything")$byClass)$F1[3]
+        
+        preci_class1=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_4,  mode = "everything")$byClass)$Precision[1]
+        preci_class2=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_4, mode = "everything")$byClass)$Precision[2]
+        preci_class3=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_4, mode = "everything")$byClass)$Precision[3]
+        
+        recall_class1=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_4, mode = "everything")$byClass)$Recall[1]
+        recall_class2=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_4, mode = "everything")$byClass)$Recall[2]
+        recall_class3=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_4,  mode = "everything")$byClass)$Recall[3]
+        
+        F1_class1[F1_class1=="NaN"]=0
+        F1_class2[F1_class2=="NaN"]=0
+        F1_class3[F1_class3=="NaN"]=0
+        
+        preci_class1[preci_class1=="NaN"]=0
+        preci_class2[preci_class2=="NaN"]=0
+        preci_class3[preci_class3=="NaN"]=0
+        
+        recall_class1[recall_class1=="NaN"]=0
+        recall_class2[recall_class2=="NaN"]=0
+        recall_class3[recall_class3=="NaN"]=0
+        
+        F1_class=c(F1_class1,F1_class2,F1_class3)
+        preci_class=c(preci_class1,preci_class2,preci_class3)
+        recall_class=c(recall_class1,recall_class2,recall_class3)
+        
+        F1_macro=mean(F1_class[!is.na(F1_class)])
+        precision=mean(preci_class[!is.na(preci_class)])
+        recall=mean(recall_class[!is.na(recall_class)])
+        
+        
+        perf=t(data.frame(F1=F1_macro,precision=precision,recall=recall,F1_class1=F1_class1,F1_class2=F1_class2,F1_class3=F1_class3,preci_class1=preci_class1,preci_class2=preci_class2,preci_class3=preci_class3,recall_class1=recall_class1,recall_class2=recall_class2,recall_class3=recall_class3))
+    }
+  moy=rowMeans(F1_normcorr)
+  return(list(moy=moy[1:3],tab=data.frame(F1_normcorr)))
+}  
+
+start.time <- Sys.time()
+func_F1_normcorr_groupe4GINI=F1_normcorr_groupe4GINI(1000,data_normcorrGINI2)
+
+end.time <- Sys.time()
+
+print(end.time-start.time)
 ```
