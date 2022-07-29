@@ -24,7 +24,7 @@ names(sensoconso)[names(sensoconso)=="BOUCHE PATEUSE5"] <- "BOUCHE_PATEUSE5"
 ```
 
 ## Création des tableaux par sélection de variables à la main
-# On enleve les descripteurs qui ne respectent pas la normalité des résidus pour les moyennes ajustées soit :
+# On enleve les descripteurs qui ne respectent pas la normalité des résidus pour les moyennes ajustées :
 2:"PEPPERMINT1",3:"EUCALYPTUS1",4:"CHLOROPHYLLE1",6:"AROME3",7:"PEPPERMINT3",8:"EUCALYPTUS3",9:"CHLOROPHYLLE3",28:"RESIDUS5",29:"ANESTHESIE5",32:"PIQUANT5",34:"ACIDE5",35:"AMER5",36:"ASTRINGENT5"
 ```{r}
 sensoconsoGOUT2=sensoconso[,-c(2,3,4,6,7,8,9,28,29,32,34,35,36,39)]
@@ -46,13 +46,13 @@ ggcorr(sensoconsoGOUT[,c("PIQUANT3","PIQUANT4","ANESTHESIE3","ANESTHESIE4","FRAI
 ```
 On garde alors Frais3, Piquant3 et Sucre4 et on supprime les autres covariables très fortement corrélées.
 
-# Tableau sans les descripteurs trop fortement corrélés
+# Tableau sans les descripteurs fortement corrélés (>0.85)
 ```{r}
 data1=sensoconsoGOUT[,-c(22,17,19,21,31,33,27)]
 #data2=sensoconsoGOUT2[,-c(22,17,19,21,31,33,27)]
 #data2=sensoconsoGOUT2[,-c(14,24,10,12,15,23,20)]
 ```
-# Tableau sans descripteurs qui ne respect pas normalité des résidus et les descripteurs avec une trop forte corrélation
+# Tableau sans les descripteurs qui ne respectent pas normalité des résidus et les descripteurs avec une corrélation supérieure à 0.85
 ```{r}
 sensoconsoGOUT3=sensoconsoGOUT2[,-c(10,12,15,20,14,22,23)]
 ```
@@ -122,7 +122,7 @@ summary(AICbacknormcorr) #idem que both
 summary(BICbacknormcorr) #pas idem que both
 ```
 
-# Evaluation des multicollinéarités par les VIF
+# Evaluation des multicollinéarités par VIF
 
 ```{r}
 library(performance)
@@ -176,7 +176,7 @@ modAIC <- update(AICback, .~.-ANESTHESIE5)
 check_collinearity(modAIC)
 ```
 
-# selection de modele : 
+# Sélection des modèles : 
 
 ```{r echo=FALSE, warning=FALSE}
 library(tidyverse)
