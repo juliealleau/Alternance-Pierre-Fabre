@@ -66,7 +66,7 @@ pvaluebdb = data.frame(desc[8:56],pvalbdb[8:56])
 #kbl(pvaluebdb)
 ```
 
-# Calcul des moyennes ajustées (ou simple si tous les juges on vu tous les produits)
+# Calcul des moyennes ajustées (ou simple si tous les juges ont vu tous les produits)
 
 ```{r}
 library(lme4)
@@ -278,7 +278,7 @@ pvalueconsobdb = data.frame(desc[3:23],pvalbdbc[3:23])
 pvalueconsobdb
 ```
 
-# moyenne ajusté
+# Code pour calculer les moyennes ajustées par ANOVA mixte à 2 facteurs 
 
 ```{r}
 library(lme4)
