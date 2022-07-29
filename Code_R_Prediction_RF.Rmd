@@ -67,7 +67,7 @@ names(sensogroupe4)[names(sensogroupe4)=="HALEINE SAINE5"] <- "HALEINE_SAINE5"
 names(sensogroupe4)[names(sensogroupe4)=="HALEINE SAINE4"] <- "HALEINE_SAINE4"
 names(sensogroupe4)[names(sensogroupe4)=="BOUCHE PATEUSE5"] <- "BOUCHE_PATEUSE5"
 ```
-# Mise des jours des variables en facteurs ordinals
+# "Mise à jour" des variables en facteurs ordinals
 ```{r}
 sensogroupe$class_jar_gout_2=factor(sensogroupe$class_jar_gout_2, ordered = TRUE)
 sensogroupe$class_jar_gout_3=factor(sensogroupe$class_jar_gout_3, ordered = TRUE)
@@ -506,7 +506,7 @@ F1_comp_groupe4=function(x,data){
         
         train.control=caret::trainControl(method="CV",number=10)
         
-        modelcomp3 <- caret::train(class_jar_gout_4~., data = train[,-c(40,39,41)],method="rf", ntree = 500,trControl=train.control)
+        modelcomp3 <- caret::train(class_jar_gout_4~., data = train[,-c(39,40,41)],method="rf", ntree = 500,trControl=train.control)
 
 
         pred=predict(modelcomp3, test[,-c(42,41,40,39)])
@@ -742,7 +742,7 @@ rownames(moy_F1)=c("complet","NNS","NNS+CS","CS")
 moy_F1
 
 ```
-# Optimisation des modèles retenus par l'impurté de GINI.
+# Optimisation des modèles retenus par GINI.
 # Modèle 1
 ```{r}
 modelnormalite <- caret::train(class_jar_gout_2~., data = sensogroupe2[,-c(30,29,27)],method="rf", ntree = 500)
