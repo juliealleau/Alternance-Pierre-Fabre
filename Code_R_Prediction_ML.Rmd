@@ -777,3 +777,16 @@ rownames(tabRMSE)=c("modBICcomplet","modBICcomplet2","modBICcorr","modAICcorr2",
 colnames(tabRMSE)=c("moy_RMSE","moy_RMSESD","moy_MAE","moy_MAESD","moy_rapport_RMSE")
 tabRMSE
 ```
+
+# Graphique de la qualité d'ajustement du modele final retenu: 
+
+```{r}
+ModeleFinal=lm(Goût ~ AROME3 + PEPPERMINT3 + CHLOROPHYLLE3 + PIQUANT3 + 
+    AROME4 + AMER4 + ASTRINGENT4 + HALEINE_SAINE4 + ANESTHESIE5 + 
+    AROME5 + PIQUANT5 + AMER5 + ASTRINGENT5 + HALEINE_SAINE5 + 
+    BOUCHE_PATEUSE5, 
+    data = sensoconsoGOUT)
+plot(sensoconsoGOUT$Goût,ModeleFinal$fitted.values,xlab="Valeurs réelles",ylab="Valeurs prédites",xlim=c(4.3,8.3),ylim=c(4.3,8.3), pch = 19)
+abline(a=0,b=1)
+
+```
