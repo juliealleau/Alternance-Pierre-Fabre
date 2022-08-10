@@ -118,6 +118,7 @@ qui est une des mesure courante pour evaluer le succès d'un classifieur.
 
 # groupe 1
 ```{r warning=FALSE}
+library(doParallel)
 F1_complet=function(x,data){
   set.seed(123)
   F1=foreach(i=1:x,.combine=cbind)%dopar%{
@@ -133,18 +134,11 @@ F1_complet=function(x,data){
           #F1_macro_complet2[i]=ScoreF1_macro(test$class_jar_gout_2, pred, 2)
           
           F1_score_complet=caret::confusionMatrix(pred,test$class_jar_gout_2, mode =
-                                                "everything",positive="1")$byClass[7]
-          
-          precison=caret::confusionMatrix(pred,test$class_jar_gout_2, mode =
-                                                "everything",positive="1")$byClass[5]
-          recall=caret::confusionMatrix(pred,test$class_jar_gout_2, mode =
-                                                "everything",positive="1")$byClass[6]
-          perf=list(F1=F1_score_complet)
+                                                "everything")$byClass[7]
           
   }
 
   moy_F1_score_complet=mean(F1[!is.na(F1)])
-  moy_precision=mean(F1[!is.na(F1)])
   
   return(list(moy_F1_complet=as.numeric(moy_F1_score_complet),F1_complet=as.numeric(F1)))
 }
@@ -157,8 +151,9 @@ end.time <- Sys.time()
 # Time taken by estimation :
 print(end.time - start.time)
 ```
+
 ```{r}
-func_F1_complet$F1_complet
+func_F1_complet$moy_F1_complet
 ```
 
 ```{r warning=FALSE}
@@ -175,14 +170,10 @@ F1_normalite=function(x,data){
         modelnormalite <- caret::train(class_jar_gout_2~., data = train2[,-c(30,29,27)],method="rf", ntree = 500,trControl=train.control)
 
         pred2=predict(modelnormalite, test2[,-c(30,29,28,27)])
-        #F1_macro_normalite2[i]=ScoreF1_macro(test2$class_jar_gout_2, pred2, 2)
         F1_score_normalite=caret::confusionMatrix(pred2,test2$class_jar_gout_2, mode = "everything")$byClass[7]
-
   }
   
-    
   moy_F1_score_normalite=mean(F1[!is.na(F1)])
-  
   return(list(moy_F1_normalite=as.numeric(moy_F1_score_normalite),F1_normalite=as.numeric(F1)))
 }
 
@@ -193,7 +184,7 @@ end.time <- Sys.time()
 print(end.time - start.time)
 ```
 ```{r}
-summary(func_F1_normalite$F1_normalite)
+func_F1_normalite$moy_F1_normalite
 ```
 
 ```{r warning=FALSE}
@@ -209,13 +200,9 @@ F1_normcorr=function(x,data){
         modelnormcorr <- caret::train(class_jar_gout_2~., data = train3[,-c(23,22,20)],method="rf", ntree = 500,trControl=train.control)
 
         pred2=predict(modelnormcorr, test3[,-c(23,22,21,20)])
-        #F1_macro_normcorr[i]=ScoreF1_macro(test2$class_jar_gout_2, pred2, 2)
-        F1_score_normcorr=caret::confusionMatrix(pred2,test3$class_jar_gout_2, mode = "everything")$byClass[7]
-        
+        F1_score_normcorr=caret::confusionMatrix(pred2,test3$class_jar_gout_2, mode = "everything")$byClass[7]     
   }
-
   moy_F1_score_normcorr=mean(F1[!is.na(F1)])
-  
   return(list(moy_F1_normcorr=as.numeric(moy_F1_score_normcorr),F1_normcorr=as.numeric(F1)))
 }
 
@@ -223,6 +210,10 @@ F1_normcorr=function(x,data){
 start.time <- Sys.time()
 func_F1_normcorr=F1_normcorr(1000,sensogroupe3)
 print(end.time - start.time)
+```
+
+```{r}
+func_F1_normcorr$moy_F1_normcorr
 ```
 
 ```{r warning=FALSE}
@@ -238,13 +229,9 @@ F1_corr=function(x,data){
         modelcorr <- caret::train(class_jar_gout_2~., data = train2[,-c(35,34,32)],method="rf", ntree = 500,trControl=train.control)
 
         pred2=predict(modelcorr, test2[,-c(35,34,33,32)])
-        #F1_macro_corr[i]=ScoreF1_macro(test2$class_jar_gout_2, pred2, 2)
-        F1_score_corr=caret::confusionMatrix(pred2,test2$class_jar_gout_2, mode = "everything")$byClass[7]
-        
+        F1_score_corr=caret::confusionMatrix(pred2,test2$class_jar_gout_2, mode = "everything")$byClass[7]  
   }
-  
   moy_F1_score_corr=mean(F1[!is.na(F1)])
-  
   return(list(moy_F1_corr=as.numeric(moy_F1_score_corr),F1_corr=as.numeric(F1)))
 }
 
@@ -254,6 +241,10 @@ func_F1_corr=F1_corr(1000,sensogroupe4)
 end.time <- Sys.time()
 
 print(end.time-start.time)
+```
+
+```{r}
+func_F1_corr$moy_F1_corr
 ```
 
 # groupe 2
@@ -745,13 +736,13 @@ moy_F1
 # Optimisation des modèles retenus par GINI.
 # Modèle 1
 ```{r}
-modelnormalite <- caret::train(class_jar_gout_2~., data = sensogroupe2[,-c(30,29,27)],method="rf", ntree = 500)
-V=varImp(modelnormalite)
-ggplot2::ggplot(V) 
+library(randomForest)
+modelnormalite <- randomForest(class_jar_gout_2~., data = sensogroupe2[,-c(30,29,27)], ntree = 500, importance=T)
+varImpPlot(modelnormalite,type=2)
 ```
 
 ```{r}
-data_normaliteGINI=data.frame(sensogroupe2[,c("HALEINE_SAINE4","HALEINE_SAINE5","FRAIS4","AROME4","FRAIS5","AROME5","ODEUR1","class_jar_gout_2")])
+data_normaliteGINI=data.frame(sensogroupe2[,c("HALEINE_SAINE4","HALEINE_SAINE5","FRAIS4","AROME4","FRAIS5","AROME5","SUCRE3","class_jar_gout_2")])
 ```
 
 ```{r warning=FALSE}
@@ -768,38 +759,31 @@ F1_normaliteGINI=function(x,data){
         modelnormalite <- caret::train(class_jar_gout_2~., data = train2,method="rf", ntree = 500,trControl=train.control)
 
         pred2=predict(modelnormalite, test2[,-c(8)])
-        #F1_macro_normalite2[i]=ScoreF1_macro(test2$class_jar_gout_2, pred2, 2)
         F1_score_normalite=caret::confusionMatrix(pred2,test2$class_jar_gout_2, mode = "everything")$byClass[7]
 
-  }
-  
-    
+  }   
   moy_F1_score_normalite=mean(F1[!is.na(F1)])
-  
   return(list(moy_F1_normalite=as.numeric(moy_F1_score_normalite),F1_normalite=as.numeric(F1)))
 }
 
 start.time <- Sys.time()
 func_F1_normalite_GINI=F1_normaliteGINI(1000,data_normaliteGINI)
-# Estimation ends...
 end.time <- Sys.time()
 
-# Time taken by estimation :
 print(end.time - start.time)
 ```
 ```{r}
-summary(func_F1_normalite$F1_normalite)
+func_F1_normalite_GINI$moy_F1_normalite
 ```
 
 # Modèle 2
 ```{r}
-modelnormcorr2 <-caret::train(class_jar_gout_3~., data = sensogroupe3[,-c(23,21,20)],method="rf", ntree = 500)
-V2=varImp(modelnormcorr2)
-ggplot2::ggplot(V2) 
+modelnormcorr2 <-randomForest(class_jar_gout_3~., data = sensogroupe3[,-c(23,21,20)], ntree = 500, importance=T)
+varImpPlot(modelnormcorr2,type=2)
 ```
 
 ```{r}
-data_normcorrGINI=data.frame(sensogroupe2[,c("HALEINE_SAINE5","AROME4","AROME5","ODEUR1","ASTRINGENT4","VISCOSITE2","class_jar_gout_3")])
+data_normcorrGINI=data.frame(sensogroupe2[,c("HALEINE_SAINE5","AROME4","AROME5","ODEUR1","ASTRINGENT4","VISCOSITE2","ACIDE3","class_jar_gout_3")])
 ```
 
 ```{r warning=FALSE}
@@ -819,7 +803,7 @@ F1_normcorr_groupe3GINI=function(x,data){
         modelnormcorr2 <-caret::train(class_jar_gout_3~., data = train3,method="rf", ntree = 500,trControl=train.control)
         
         
-        pred3=predict(modelnormcorr2, test3[,-c(7)])
+        pred3=predict(modelnormcorr2, test3[,-c(8)])
         F1_class1=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_3,  mode = "everything")$byClass)$F1[1]
         F1_class2=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_3,  mode = "everything")$byClass)$F1[2]
         F1_class3=as.data.frame(caret::confusionMatrix(pred3,test3$class_jar_gout_3,  mode = "everything")$byClass)$F1[3]
@@ -865,16 +849,20 @@ end.time <- Sys.time()
 
 print(end.time-start.time)
 ```
+
+```{r}
+func_F1_normcorr_groupe3GINI$moy
+```
+
 # Modèle 3
 
 ```{r}
-modelnormcorr3 <-caret::train(class_jar_gout_4~., data = sensogroupe3[,-c(22,21,20)],method="rf", ntree = 500)
-V3=varImp(modelnormcorr3)
-ggplot2::ggplot(V3) 
+modelnormcorr3 <-randomForest(class_jar_gout_4~., data = sensogroupe3[,-c(22,21,20)], ntree = 500, importance=T)
+varImpPlot(modelnormcorr3,type=2) 
 ```
 
 ```{r}
-data_normcorrGINI2=data.frame(sensogroupe2[,c("HALEINE_SAINE5","AROME4","AROME5","ODEUR1","AMER3","SUCRE3","class_jar_gout_4")])
+data_normcorrGINI2=data.frame(sensogroupe2[,c("HALEINE_SAINE5","AROME4","AROME5","ODEUR1","AMER3","ASTRINGENT4","class_jar_gout_4")])
 ```
 
 ```{r warning=FALSE}
@@ -941,4 +929,8 @@ func_F1_normcorr_groupe4GINI=F1_normcorr_groupe4GINI(1000,data_normcorrGINI2)
 end.time <- Sys.time()
 
 print(end.time-start.time)
+```
+
+```{r}
+func_F1_normcorr_groupe4GINI$moy
 ```
